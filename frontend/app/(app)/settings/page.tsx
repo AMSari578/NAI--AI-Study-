@@ -1,0 +1,2 @@
+﻿export default function Page(){return <><h1 className="text-3xl font-black">Settings</h1><section className="card p-6 mt-8 max-w-2xl"><h2 className="font-black">Language</h2><p className="text-slate-500 mt-2">The interface is English. NAI Study can understand both English and Arabic study materials.</p><h2 className="font-black mt-7">Privacy</h2><p className="text-slate-500 mt-2">Your materials and notes stay private to your account.</p></section></>}
+

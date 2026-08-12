@@ -1,0 +1,12 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: najm
+      POSTGRES_USER: najm
+      POSTGRES_PASSWORD: najm
+    ports: ["5432:5432"]
+    volumes: ["najm_db:/var/lib/postgresql/data"]
+volumes:
+  najm_db:
+

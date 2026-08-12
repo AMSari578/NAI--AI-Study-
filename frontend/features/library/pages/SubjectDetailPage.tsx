@@ -1,0 +1,47 @@
+"use client";
+import{use,useEffect,useState}from"react";
+import Link from"next/link";
+import{useRouter}from"next/navigation";
+import{api,del,post}from"@/lib/api";
+import Modal from"@/components/ui/Modal";
+import{ArrowLeft,Bell,BookOpen,Brain,FileText,FlaskConical,Languages,LoaderCircle,NotebookPen,Plus,Sparkles,Trash2}from"lucide-react";
+
+const tabs=[
+  {name:"Lectures",Icon:BookOpen,color:"text-primary",tint:"bg-[#E8F1FF]"},
+  {name:"Summaries",Icon:Sparkles,color:"text-violet",tint:"bg-[#F1EBFF]"},
+  {name:"Quizzes",Icon:Brain,color:"text-[#B45B00]",tint:"bg-[#FFF0DE]"},
+  {name:"Reminders",Icon:Bell,color:"text-rose-600",tint:"bg-rose-50"},
+  {name:"Materials",Icon:FileText,color:"text-teal-700",tint:"bg-teal-50"},
+  {name:"Notes",Icon:NotebookPen,color:"text-slate-600",tint:"bg-slate-100"},
+] as const;
+
+export default function Page({params}:{params:Promise<{id:string}>}){
+  const{id}=use(params),router=useRouter();
+  const[data,setData]=useState<any>(),[tab,setTab]=useState("Lectures"),[open,setOpen]=useState(false),[deleting,setDeleting]=useState<number|null>(null);
+  const load=()=>api(`/subjects/${id}`).then(setData);
+  useEffect(()=>{void load()},[id]);
+  async function add(e:React.FormEvent<HTMLFormElement>){e.preventDefault();await post(`/subjects/${id}/topics`,Object.fromEntries(new FormData(e.currentTarget)));setOpen(false);await load()}
+  async function removeTopic(topic:any){if(!confirm(`Delete lecture «${topic.title}» and all of its content?`))return;setDeleting(topic.id);try{await del(`/topics/${topic.id}`);await load()}finally{setDeleting(null)}}
+  async function removeSubject(){if(!confirm(`Delete subject «${data.subject.name}» and everything inside it?`))return;await del(`/subjects/${id}`);router.push("/subjects")}
+  if(!data)return <div className="card flex items-center gap-3 bg-white p-6 text-[#727785]"><LoaderCircle className="animate-spin text-primary" size={20}/><span className="font-bold">Loading subject...</span></div>;
+  return <>
+    <Link href="/subjects" className="text-sm font-bold text-[#727785]">Subjects /</Link>
+    <header className="mt-3 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-black">{data.subject.name}</h1><p className="mt-2 text-[#424754]">{data.subject.description||"Everything for this subject in one study space."}</p></div><div className="flex gap-2"><button onClick={removeSubject} className="btn btn-secondary text-red-600"><Trash2 size={17}/>Delete</button><button onClick={()=>setOpen(true)} className="btn btn-primary"><Plus size={17}/>New lecture</button></div></header>
+
+    <div className="scrollbar mt-8 overflow-x-auto"><nav className="flex min-w-max gap-1 rounded-2xl border border-[#D9DBE8] bg-white p-2 shadow-sm">{tabs.map(({name,Icon,color,tint})=><button key={name} onClick={()=>setTab(name)} className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black transition ${tab===name?"bg-primary text-white shadow-md":"text-[#5F6270] hover:bg-[#F0F1F8]"}`}><span className={`grid h-8 w-8 place-items-center rounded-lg ${tab===name?"bg-white/20 text-white":`${tint} ${color}`}`}><Icon size={16}/></span>{name}</button>)}</nav></div>
+
+    {tab==="Lectures"&&<section className="mt-8"><SectionTitle title="Lectures" sub="Open a lecture to use Tutor, Summary, Flashcards, Concept Map, Quiz, and Notes."/><LectureGrid topics={data.topics} deleting={deleting} removeTopic={removeTopic}/>{!data.topics.length&&<Empty text="No lectures yet. Add your first lecture to begin."/>}</section>}
+    {tab==="Summaries"&&<section className="mt-8"><SectionTitle title="Saved summaries" sub="Simple and detailed summaries created across this subject."/><div className="grid gap-4 md:grid-cols-2">{data.summaries.map((x:any)=><Link href={`/topics/${x.topic_id}`} key={x.id} className="card bg-white p-5"><div className="flex flex-wrap gap-2 text-xs font-black"><span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-primary">{x.summary_type==="detailed"?<FlaskConical size={13}/>:<Sparkles size={13}/>} {x.summary_type==="detailed"?"Detailed":"Simple"}</span><span className="inline-flex items-center gap-1.5 rounded-full bg-violet/10 px-2.5 py-1 text-violet"><Languages size={13}/>{x.language==="arabic"?"Arabic":"English"}</span></div><h3 className="mt-4 font-black">{x.topic_title}</h3><p className="mt-2 line-clamp-3 text-sm text-[#727785]">{String(x.content).replace(/[#*]/g,"")}</p></Link>)}{!data.summaries.length&&<Empty text="No summaries have been created for this subject."/>}</div></section>}
+    {tab==="Quizzes"&&<section className="mt-8"><SectionTitle title="Generated quizzes" sub="All quizzes created from this subject’s lectures."/><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{data.quizzes.map((x:any)=><Link href={`/topics/${x.topic_id}`} key={x.id} className="card bg-white p-5"><Brain className="text-tertiary"/><h3 className="mt-4 font-black">{x.topic_title}</h3><p className="mt-1 text-sm capitalize text-[#727785]">{x.quiz_type.replace("_"," ")} · {x.question_count} questions</p></Link>)}{!data.quizzes.length&&<Empty text="No quizzes have been generated for this subject."/>}</div></section>}
+    {tab==="Reminders"&&<section className="mt-8"><SectionTitle title="Reminders" sub="Deadlines and study reminders connected to this subject."/><div className="space-y-3">{data.reminders.map((x:any)=><article key={x.id} className="card flex items-center gap-4 bg-white p-5"><span className="grid h-11 w-11 place-items-center rounded-xl bg-tertiary/10 text-tertiary"><Bell/></span><div><h3 className="font-black">{x.title}</h3><p className="mt-1 text-sm text-[#727785]">{new Date(x.reminder_datetime).toLocaleString("en-US")}</p></div></article>)}{!data.reminders.length&&<Empty text="No reminders for this subject."/>}</div></section>}
+    {tab==="Materials"&&<section className="mt-8"><SectionTitle title="Study materials" sub="Files and text saved in every lecture of this subject."/><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{data.materials.map((x:any)=><Link href={`/materials/${x.id}`} key={x.id} className="card bg-white p-5"><FileText className="text-primary"/><h3 className="mt-4 truncate font-black">{x.file_name}</h3><p className="mt-1 text-sm text-[#727785]">{x.topic_title} · Open reader</p></Link>)}{!data.materials.length&&<Empty text="No materials uploaded for this subject."/>}</div></section>}
+    {tab==="Notes"&&<section className="mt-8"><SectionTitle title="Notes" sub="All personal notes saved in this subject."/><div className="grid gap-4 md:grid-cols-2">{data.notes.map((x:any)=><Link href={`/notes/${x.id}`} key={x.id} className="card bg-white p-5"><NotebookPen className="text-violet"/><h3 className="mt-4 font-black">{x.title}</h3><p className="mt-1 text-xs font-bold text-primary">{x.topic_title}</p><p className="mt-3 line-clamp-3 text-sm text-[#727785]">{String(x.content).replace(/<[^>]+>/g,"")}</p></Link>)}{!data.notes.length&&<Empty text="No notes saved for this subject."/>}</div></section>}
+
+    <Modal open={open} onClose={()=>setOpen(false)} title="Add lecture"><form onSubmit={add} className="space-y-4"><input required name="title" className="field" placeholder="Lecture title"/><textarea name="description" className="field" placeholder="Short description"/><button className="btn btn-primary w-full">Create study space</button></form></Modal>
+  </>
+}
+
+function LectureGrid({topics,deleting,removeTopic}:any){return <div className="mt-5 space-y-3">{topics.map((topic:any,i:number)=><article key={topic.id} className="card group flex items-center gap-4 overflow-hidden bg-white p-4 transition hover:border-primary hover:shadow-md md:p-5"><span className="h-16 w-1 shrink-0 rounded-full bg-gradient-to-b from-primary to-violet"/><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-violet/10 text-violet"><FileText size={21}/></span><span className="w-9 shrink-0 text-center text-xs font-black text-[#B2B5C2]">{String(i+1).padStart(2,"0")}</span><Link href={`/topics/${topic.id}`} className="min-w-0 flex-1"><h2 className="truncate text-lg font-black">{topic.title}</h2><p className="mt-1 line-clamp-1 text-sm text-[#727785]">{topic.description||"Add materials and start studying with NAI Study."}</p></Link><div className="hidden items-center gap-2 lg:flex"><LessonStat value={topic.material_count||0} label="Materials"/><LessonStat value={topic.summary_count||0} label="Summaries"/><LessonStat value={topic.question_count||0} label="Questions"/></div><Link href={`/topics/${topic.id}`} className="btn btn-primary shrink-0 px-4 py-2.5 text-sm">Open <ArrowLeft size={15}/></Link><button disabled={deleting===topic.id} onClick={()=>removeTopic(topic)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-red-500 transition hover:bg-red-50" aria-label={`Delete ${topic.title}`}><Trash2 size={17}/></button></article>)}</div>}
+function LessonStat({value,label}:any){return <span className="min-w-[72px] rounded-xl bg-[#F2F3FD] px-3 py-2 text-center"><b className="block text-sm text-primary">{value}</b><small className="text-[9px] font-bold text-[#727785]">{label}</small></span>}
+function SectionTitle({title,sub}:{title:string;sub:string}){return <div><h2 className="text-2xl font-black">{title}</h2><p className="mt-1 text-[#727785]">{sub}</p></div>}
+function Empty({text}:{text:string}){return <div className="card col-span-full py-14 text-center text-[#727785]"><BookOpen className="mx-auto mb-3"/><p>{text}</p></div>}

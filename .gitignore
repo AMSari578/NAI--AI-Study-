@@ -1,0 +1,15 @@
+.env
+*.db
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+.pnpm-store/
+.next/
+*.tsbuildinfo
+tools/ollama/
+tools/ollama-models/
+*.log
+backend/uploads/*
+!backend/uploads/.gitkeep
