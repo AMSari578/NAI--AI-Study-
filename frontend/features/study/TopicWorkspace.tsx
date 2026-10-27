@@ -1,0 +1,706 @@
+"use client";
+
+import { FormEvent, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  Brain,
+  BookOpen,
+  Eraser,
+  FileText,
+  Layers3,
+  Map,
+  MessageCircle,
+  NotebookPen,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Send,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
+import { api, del, post } from "@/lib/api";
+import InteractiveConceptMap from "@/features/study/InteractiveConceptMap";
+import FlashcardStudio from "@/features/study/FlashcardStudio";
+import QuizStudio from "@/features/study/QuizStudio";
+import SummaryStudio from "@/features/study/SummaryStudio";
+
+const tabs = [
+  {
+    id: "overview",
+    label: "Overview",
+    Icon: BookOpen,
+    color: "text-primary",
+    tint: "bg-[#E8F1FF]",
+  },
+  {
+    id: "materials",
+    label: "Materials",
+    Icon: FileText,
+    color: "text-teal-700",
+    tint: "bg-teal-50",
+  },
+  {
+    id: "tutor",
+    label: "Tutor",
+    Icon: MessageCircle,
+    color: "text-primary",
+    tint: "bg-[#E8F1FF]",
+  },
+  {
+    id: "summary",
+    label: "Summary",
+    Icon: Sparkles,
+    color: "text-violet",
+    tint: "bg-[#F1EBFF]",
+  },
+  {
+    id: "flashcards",
+    label: "Flashcards",
+    Icon: Layers3,
+    color: "text-violet",
+    tint: "bg-[#F1EBFF]",
+  },
+  {
+    id: "concept-map",
+    label: "Concept Map",
+    Icon: Map,
+    color: "text-primary",
+    tint: "bg-[#E8F1FF]",
+  },
+  {
+    id: "quiz",
+    label: "Quiz",
+    Icon: Brain,
+    color: "text-[#B45B00]",
+    tint: "bg-[#FFF0DE]",
+  },
+  {
+    id: "notes",
+    label: "Notes",
+    Icon: NotebookPen,
+    color: "text-slate-600",
+    tint: "bg-slate-100",
+  },
+] as const;
+type TabId = (typeof tabs)[number]["id"];
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="py-16 text-center text-slate-400">
+      <FileText className="mx-auto mb-3" />
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function MessageText({ text }: { text: string }) {
+  const inline = (value: string) =>
+    value
+      .split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
+      .filter(Boolean)
+      .map((part, index) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+          <strong key={index}>{part.slice(2, -2)}</strong>
+        ) : part.startsWith("`") && part.endsWith("`") ? (
+          <code key={index}>{part.slice(1, -1)}</code>
+        ) : (
+          part
+        ),
+      );
+  return (
+    <div className="message-text">
+      {String(text || "")
+        .split("\n")
+        .map((raw, index) => {
+          const line = raw.trim();
+          if (!line) return <div key={index} className="message-space" />;
+          const heading = line.match(/^(#{1,3})\s+(.+)/);
+          if (heading) return <h3 key={index}>{inline(heading[2])}</h3>;
+          const bullet = line.match(/^[-*•]\s+(.+)/);
+          if (bullet)
+            return (
+              <div key={index} className="message-list">
+                <span>•</span>
+                <p>{inline(bullet[1])}</p>
+              </div>
+            );
+          const numbered = line.match(/^(\d+)[.)]\s+(.+)/);
+          if (numbered)
+            return (
+              <div key={index} className="message-list">
+                <span>{numbered[1]}.</span>
+                <p>{inline(numbered[2])}</p>
+              </div>
+            );
+          return <p key={index}>{inline(line)}</p>;
+        })}
+    </div>
+  );
+}
+
+function Overview({
+  data,
+  select,
+}: {
+  data: any;
+  select: (tab: TabId) => void;
+}) {
+  const tools = [
+    [
+      FileText,
+      "Materials",
+      "Open files and text saved for this lecture",
+      "materials",
+    ],
+    [MessageCircle, "Ask NAI", "Study with your AI tutor", "tutor"],
+    [Sparkles, "Create summary", "Generate a focused study summary", "summary"],
+    [
+      Layers3,
+      "Review flashcards",
+      "Remember ideas with active recall",
+      "flashcards",
+    ],
+    [Map, "Concept map", "Connect the important lesson ideas", "concept-map"],
+    [
+      Brain,
+      "Test yourself",
+      "Create questions and check understanding",
+      "quiz",
+    ],
+    [NotebookPen, "Study notes", "Write and improve your notes", "notes"],
+  ] as const;
+  return (
+    <>
+      <section className="card bg-gradient-to-br from-white to-[#EEF2FF] p-6">
+        <p className="text-xl font-black">What would you like to study?</p>
+        <p className="mt-2 text-slate-500">
+          Every tool uses this lecture, its materials, and your private notes as
+          context.
+        </p>
+      </section>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {tools.map(([Icon, label, description, tab]) => (
+          <button
+            key={tab}
+            onClick={() => select(tab)}
+            className="card bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+          >
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#E8F1FF] text-primary">
+              <Icon size={20} />
+            </span>
+            <h3 className="mt-3 font-black">{label}</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              {tab === "materials"
+                ? `${data.materials.length} saved · ${description}`
+                : tab === "notes"
+                  ? `${data.notes.length} saved · ${description}`
+                  : description}
+            </p>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function Materials({
+  topicId,
+  items,
+  reload,
+}: {
+  topicId: number;
+  items: any[];
+  reload: () => void;
+}) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function upload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      await post(`/topics/${topicId}/materials`, form);
+      await reload();
+    } catch (reason: any) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  }
+  async function addText(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await post(
+        `/topics/${topicId}/materials/text`,
+        Object.fromEntries(new FormData(event.currentTarget)),
+      );
+      event.currentTarget.reset();
+      await reload();
+    } catch (reason: any) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove(id: number) {
+    await del(`/materials/${id}`);
+    await reload();
+  }
+  async function reprocess(id: number) {
+    setBusy(true);
+    setError("");
+    try {
+      await post(`/materials/${id}/reprocess`, {});
+      await reload();
+    } catch (reason: any) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+      <section className="card bg-white p-6">
+        <h2 className="text-xl font-black">Saved materials</h2>
+        <div className="mt-4 space-y-3">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="flex items-center gap-3 rounded-xl bg-[#F7F7FB] p-4"
+            >
+              <FileText className="shrink-0 text-primary" />
+              <Link href={`/materials/${item.id}`} className="min-w-0 flex-1">
+                <p className="truncate font-bold">{item.file_name}</p>
+                <p className="text-xs text-slate-400">
+                  {item.file_type} ·{" "}
+                  {item.extracted_text
+                    ? `${item.extracted_text.length.toLocaleString()} حرف مستخرج`
+                    : "لم يتم استخراج نص"}
+                </p>
+              </Link>
+              {item.file_type !== "text/plain" && (
+                <button
+                  disabled={busy}
+                  onClick={() => void reprocess(item.id)}
+                  className="grid h-9 w-9 place-items-center rounded-lg text-primary hover:bg-blue-50"
+                  title="إعادة قراءة الملف"
+                >
+                  <RefreshCw className={busy ? "animate-spin" : ""} size={17} />
+                </button>
+              )}
+              <button
+                onClick={() => void remove(item.id)}
+                className="grid h-9 w-9 place-items-center rounded-lg text-red-500 hover:bg-red-50"
+                aria-label={`Delete ${item.file_name}`}
+              >
+                <Trash2 size={17} />
+              </button>
+            </article>
+          ))}
+          {!items.length && (
+            <Empty text="Add a PDF, image, or text to begin." />
+          )}
+        </div>
+      </section>
+      <aside className="space-y-5">
+        <label className="card grid cursor-pointer place-items-center border-dashed bg-white p-7 text-center">
+          <Paperclip className="text-primary" />
+          <b className="mt-3">
+            {busy ? "Processing your file..." : "Upload PDF, image, or text"}
+          </b>
+          <small className="mt-1 text-slate-400">
+            PDF, PNG, JPG, WEBP, or TXT up to 15MB
+          </small>
+          <input
+            className="hidden"
+            type="file"
+            accept=".pdf,.txt,image/png,image/jpeg,image/webp"
+            onChange={upload}
+          />
+        </label>
+        <form onSubmit={addText} className="card space-y-3 bg-white p-5">
+          <h3 className="font-black">Add text</h3>
+          <input
+            name="title"
+            required
+            className="field"
+            placeholder="Text title"
+          />
+          <textarea
+            name="content"
+            required
+            rows={6}
+            className="field"
+            placeholder="Paste your notes or a textbook paragraph here..."
+          />
+          <button disabled={busy} className="btn btn-primary w-full">
+            <Plus size={17} />
+            Save text
+          </button>
+        </form>
+        {error && (
+          <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+      </aside>
+    </div>
+  );
+}
+
+function Tutor({ topicId }: { topicId: number }) {
+  const [messages, setMessages] = useState<any[]>([]),
+    [conversationId, setConversationId] = useState<number | null>(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let active = true;
+    api<any>(`/topics/${topicId}/chat`)
+      .then((result) => {
+        if (active) {
+          setMessages(result.messages);
+          setConversationId(result.conversation_id);
+        }
+      })
+      .catch((reason) => active && setError(reason.message));
+    return () => {
+      active = false;
+    };
+  }, [topicId]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, busy]);
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget),
+      message = String(form.get("message") || "").trim();
+    if (!message) return;
+    event.currentTarget.reset();
+    setMessages((items) => [...items, { role: "user", message }]);
+    setBusy(true);
+    setError("");
+    try {
+      const result: any = await post("/ai/chat", {
+        topic_id: topicId,
+        message,
+        conversation_id: conversationId,
+      });
+      setConversationId(result.conversation_id);
+      setMessages((items) => [...items, result.message]);
+    } catch (reason: any) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function sendImage(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const message =
+      window.prompt(
+        "What would you like to ask about the image?",
+        "Explain this image",
+      ) || "Explain this image";
+    const form = new FormData();
+    form.append("topic_id", String(topicId));
+    form.append("message", message);
+    if (conversationId) form.append("conversation_id", String(conversationId));
+    form.append("file", file);
+    setMessages((items) => [
+      ...items,
+      { role: "user", message: `${message} 📷` },
+    ]);
+    setBusy(true);
+    setError("");
+    try {
+      const result: any = await post("/ai/chat-image", form);
+      setConversationId(result.conversation_id);
+      setMessages((items) => [...items, result.message]);
+    } catch (reason: any) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  }
+  async function clearChat() {
+    if (!conversationId || !window.confirm("هل تريد تنظيف جميع رسائل المحادثة؟")) return;
+    setBusy(true);
+    try {
+      await del(`/conversations/${conversationId}/messages`);
+      setMessages([]);
+      setError("");
+    } catch (reason: any) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function deleteChat() {
+    if (!conversationId || !window.confirm("هل تريد حذف المحادثة كاملة؟ لا يمكن التراجع عن ذلك.")) return;
+    setBusy(true);
+    try {
+      await del(`/conversations/${conversationId}`);
+      setMessages([]);
+      setConversationId(null);
+      setError("");
+    } catch (reason: any) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="card overflow-hidden bg-white">
+      <header className="flex flex-wrap items-center gap-3 border-b p-5">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-primary to-violet text-white">
+          <Sparkles size={19} />
+        </span>
+        <div>
+          <h2 className="font-black">NAI Study — Your personal tutor</h2>
+          <p className="text-xs text-emerald-600">
+            Uses this lecture and your private notes
+          </p>
+        </div>
+        {conversationId && (
+          <div className="ms-auto flex flex-wrap gap-2">
+            <button disabled={busy} onClick={() => void clearChat()} className="btn btn-secondary text-xs">
+              <Eraser size={15} />تنظيف المحادثة
+            </button>
+            <button disabled={busy} onClick={() => void deleteChat()} className="btn border border-red-200 bg-red-50 text-xs text-red-700">
+              <Trash2 size={15} />حذف المحادثة
+            </button>
+          </div>
+        )}
+      </header>
+      <div className="scrollbar h-[52vh] overflow-y-auto bg-[#F7F7FB] p-5">
+        {!messages.length && (
+          <div className="py-16 text-center">
+            <Sparkles className="mx-auto text-primary" size={34} />
+            <h3 className="mt-4 font-black">Start a study session</h3>
+            <p className="mt-2 text-slate-500">
+              Try: “Explain this lecture in simple words.”
+            </p>
+          </div>
+        )}
+        <div className="space-y-4">
+          {messages.map((item, index) => (
+            <div
+              key={`${item.role}-${item.id ?? "pending"}-${index}`}
+              className={`chat-bubble max-w-[88%] px-4 py-3 md:max-w-[78%] ${item.role === "user" ? "ml-auto bg-gradient-to-br from-primary to-violet text-white" : "mr-auto border bg-white"}`}
+            >
+              <p
+                className={`mb-1 text-[11px] font-black uppercase tracking-wide ${item.role === "user" ? "text-white/65" : "text-primary"}`}
+              >
+                {item.role === "user" ? "You" : "NAI Study AI"}
+              </p>
+              {item.role === "user" ? (
+                <p className="whitespace-pre-wrap leading-relaxed">
+                  {item.message}
+                </p>
+              ) : (
+                <MessageText text={item.message} />
+              )}
+            </div>
+          ))}
+          {busy && (
+            <div className="mr-auto flex w-fit items-center gap-2 rounded-2xl border bg-white px-4 py-3 text-sm text-slate-500">
+              <Sparkles size={15} />
+              NAI Study is answering...
+            </div>
+          )}
+          <div ref={end} />
+        </div>
+      </div>
+      <form onSubmit={send} className="flex gap-3 border-t p-4">
+        <label
+          className="btn btn-secondary cursor-pointer"
+          title="Attach an image"
+        >
+          <Paperclip size={18} />
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={sendImage}
+            className="hidden"
+          />
+        </label>
+        <input
+          name="message"
+          disabled={busy}
+          className="field"
+          placeholder="Ask NAI Study about this lecture..."
+        />
+        <button disabled={busy} className="btn btn-primary" aria-label="Send">
+          <Send size={19} />
+        </button>
+      </form>
+      {error && <p className="px-4 pb-4 text-sm text-red-600">{error}</p>}
+    </section>
+  );
+}
+
+function Notes({
+  topicId,
+  items,
+  reload,
+}: {
+  topicId: number;
+  items: any[];
+  reload: () => void;
+}) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function add(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await post(
+        `/topics/${topicId}/notes`,
+        Object.fromEntries(new FormData(event.currentTarget)),
+      );
+      event.currentTarget.reset();
+      reload();
+    } catch (reason: any) {
+      setError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove(id: number) {
+    await del(`/notes/${id}`);
+    reload();
+  }
+  return (
+    <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+      <form onSubmit={add} className="card h-fit space-y-3 bg-white p-5">
+        <div className="flex items-center gap-2">
+          <NotebookPen className="text-violet" />
+          <h2 className="text-xl font-black">New note</h2>
+        </div>
+        <p className="text-xs text-slate-500">
+          NAI Study uses your notes while teaching.
+        </p>
+        <input
+          required
+          name="title"
+          className="field"
+          placeholder="Note title"
+        />
+        <textarea
+          required
+          name="content"
+          rows={10}
+          className="field"
+          placeholder="Write an idea, reminder, or explanation..."
+        />
+        <button disabled={busy} className="btn btn-primary w-full">
+          <Plus size={17} />
+          {busy ? "Saving..." : "Save note"}
+        </button>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </form>
+      <div className="space-y-4">
+        {items.map((item, index) => (
+          <article
+            key={item.id}
+            className={`card border-l-4 bg-white p-5 ${index % 3 === 0 ? "border-l-primary" : index % 3 === 1 ? "border-l-violet" : "border-l-emerald-500"}`}
+          >
+            <div className="flex justify-between gap-3">
+              <Link href={`/notes/${item.id}`} className="min-w-0 flex-1">
+                <h3 className="truncate font-black">{item.title}</h3>
+                <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">
+                  {item.content}
+                </p>
+              </Link>
+              <button
+                onClick={() => void remove(item.id)}
+                className="grid h-9 w-9 place-items-center rounded-lg text-red-500 hover:bg-red-50"
+                aria-label={`Delete ${item.title}`}
+              >
+                <Trash2 size={17} />
+              </button>
+            </div>
+          </article>
+        ))}
+        {!items.length && (
+          <div className="card bg-white">
+            <Empty text="Write your first note; NAI Study will use it as study context." />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function TopicWorkspace({ topicId }: { topicId: number }) {
+  const [data, setData] = useState<any>(),
+    [tab, setTab] = useState<TabId>("summary"),
+    [error, setError] = useState("");
+  const load = () =>
+    api(`/topics/${topicId}`)
+      .then(setData)
+      .catch((reason) => setError(reason.message));
+  useEffect(() => {
+    void load();
+  }, [topicId]);
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get(
+      "tab",
+    ) as TabId | null;
+    if (requested && ["summary", "quiz", "concept-map", "tutor"].includes(requested))
+      setTab(requested);
+  }, []);
+  if (!data)
+    return (
+      <div className="card bg-white p-8">
+        {error || "Opening your study space..."}
+      </div>
+    );
+  const content: Record<TabId, React.ReactNode> = {
+    overview: <Overview data={data} select={setTab} />,
+    materials: (
+      <Materials topicId={topicId} items={data.materials} reload={load} />
+    ),
+    tutor: <Tutor topicId={topicId} />,
+    summary: <SummaryStudio topicId={topicId} />,
+    flashcards: <FlashcardStudio topicId={topicId} />,
+    "concept-map": <InteractiveConceptMap topicId={topicId} />,
+    quiz: <QuizStudio topicId={topicId} />,
+    notes: <Notes topicId={topicId} items={data.notes} reload={load} />,
+  };
+  return (
+    <>
+      <header>
+        <Link
+          href={`/subjects/${data.subject.id}`}
+          className="text-sm font-bold text-[#727785]"
+        >
+          {data.subject.name} /
+        </Link>
+        <h1 className="mt-3 text-3xl font-black">{data.topic.title}</h1>
+        <p className="mt-2 text-[#424754]">
+          {data.topic.description ||
+            "Everything for this lecture in one study space."}
+        </p>
+      </header>
+      <section className="topic-tool-grid mt-8">
+        {[
+          {id:"summary" as TabId,title:"الملخصات",description:"أنشئ ملخصًا بسيطًا أو متوسطًا أو شاملًا",emoji:"✨",className:"topic-tool-violet"},
+          {id:"quiz" as TabId,title:"الاختبارات",description:"اختبر فهمك بأسئلة من محتوى الملف",emoji:"🧠",className:"topic-tool-amber"},
+          {id:"concept-map" as TabId,title:"خرائط المفاهيم",description:"اربط أهم الأفكار في خريطة تفاعلية",emoji:"🗺️",className:"topic-tool-green"},
+          {id:"tutor" as TabId,title:"اسأل المدرس",description:"تحدث مع المدرس الذكي حول هذا الملف",emoji:"💬",className:"topic-tool-blue"},
+        ].map(item=><button key={item.id} onClick={()=>setTab(item.id)} className={`topic-tool-card ${item.className} ${tab===item.id?"is-active":""}`}><span className="topic-tool-emoji">{item.emoji}</span><span><b>{item.title}</b><small>{item.description}</small></span></button>)}
+      </section>
+      <div className="mt-8">{content[tab]}</div>
+    </>
+  );
+}
