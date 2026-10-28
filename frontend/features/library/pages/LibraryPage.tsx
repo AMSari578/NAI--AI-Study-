@@ -45,14 +45,14 @@ export default function LibraryPage() {
   const [error, setError] = useState("");
 
   async function load() {
-    try {
-      const [subjects, dashboard] = await Promise.all([api<any[]>("/subjects"), api<any>("/dashboard")]);
-      setItems(subjects);
-      setStatistics(dashboard.statistics || {});
-      setError("");
-    } catch (reason: any) {
-      setError(reason.message);
-    }
+    const [subjectsResult, statisticsResult] = await Promise.allSettled([
+      api<any[]>("/subjects"),
+      api<Record<string, number>>("/statistics"),
+    ]);
+    if (subjectsResult.status === "fulfilled") setItems(subjectsResult.value);
+    if (statisticsResult.status === "fulfilled") setStatistics(statisticsResult.value || {});
+    const failed = [subjectsResult, statisticsResult].find(result => result.status === "rejected") as PromiseRejectedResult | undefined;
+    setError(failed ? String(failed.reason?.message || "تعذر تحديث بعض الإحصائيات.") : "");
   }
   useEffect(() => {
     const refresh = () => { void load(); };

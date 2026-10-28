@@ -14,6 +14,17 @@ from app.modules.study.service import list_subjects
 router = APIRouter(tags=["productivity"])
 
 
+def user_statistics(db, user_id: int) -> dict[str, int]:
+    return {
+        "subjects": db.query(m.Subject).filter(m.Subject.user_id == user_id, m.Subject.deleted_at.is_(None)).count(),
+        "quizzes": db.query(m.Quiz).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user_id, m.Subject.deleted_at.is_(None), m.Quiz.deleted_at.is_(None)).count(),
+        "completed_quizzes": db.query(m.Quiz).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user_id, m.Subject.deleted_at.is_(None), m.Quiz.deleted_at.is_(None), m.Quiz.score.is_not(None)).count(),
+        "completed_tasks": db.query(m.Task).filter(m.Task.user_id == user_id, m.Task.completed.is_(True)).count(),
+        "summaries": db.query(m.Summary).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user_id, m.Subject.deleted_at.is_(None), m.Summary.deleted_at.is_(None)).count(),
+        "concept_maps": db.query(m.ConceptMap).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user_id, m.Subject.deleted_at.is_(None), m.ConceptMap.deleted_at.is_(None)).count(),
+    }
+
+
 def register_owned_crud(model, schema) -> None:
     base = f"/{model.__tablename__}"
 
@@ -48,6 +59,12 @@ register_owned_crud(m.Task, TaskIn)
 register_owned_crud(m.Reminder, ReminderIn)
 
 
+@router.get("/statistics")
+def statistics(db=Depends(get_db), user=Depends(current_user)):
+    """Small, fast endpoint used by the home page and library counters."""
+    return user_statistics(db, user.id)
+
+
 @router.get("/dashboard")
 def dashboard(db=Depends(get_db), user=Depends(current_user)):
     topics = db.query(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None)).order_by(m.Topic.last_opened_at.desc().nullslast()).limit(5).all()
@@ -75,12 +92,5 @@ def dashboard(db=Depends(get_db), user=Depends(current_user)):
     continuation=recent_topics[0] if recent_topics else None
     if last_material:
         material,topic,subject=last_material;continuation={"id":topic.id,"title":topic.title,"subject_name":subject.name,"material_id":material.id,"material_name":material.file_name,"last_studied_at":material.last_opened_at}
-    statistics = {
-        "subjects": db.query(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None)).count(),
-        "quizzes": db.query(m.Quiz).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None), m.Quiz.deleted_at.is_(None)).count(),
-        "completed_quizzes": db.query(m.Quiz).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None), m.Quiz.deleted_at.is_(None), m.Quiz.score.is_not(None)).count(),
-        "completed_tasks": db.query(m.Task).filter(m.Task.user_id == user.id, m.Task.completed.is_(True)).count(),
-        "summaries": db.query(m.Summary).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None), m.Summary.deleted_at.is_(None)).count(),
-        "concept_maps": db.query(m.ConceptMap).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None), m.ConceptMap.deleted_at.is_(None)).count(),
-    }
+    statistics = user_statistics(db, user.id)
     return {"user": UserOut.model_validate(user), "statistics": statistics, "subjects": list_subjects(db, user.id), "recent_topics": recent_topics, "recent_materials": [MaterialOut.model_validate(item) for item in materials], "tasks": tasks, "reminders": reminders, "upcoming_exams":[{"id":x.id,"name":x.name,"subject_id":x.subject_id,"exam_datetime":x.exam_datetime} for x in exams], "flashcards_due":due_cards, "weak_topics":[{"topic_id":p.topic_id,"topic_title":t.title,"subject_name":subject.name,"label":p.mastery_label} for p,t,subject in weak], "continue_studying":continuation}
