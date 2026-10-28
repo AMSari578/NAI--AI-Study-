@@ -1,4 +1,4 @@
-import base64, json, math, re
+import base64, json, math, re, time
 from collections import Counter
 from abc import ABC, abstractmethod
 from functools import lru_cache
@@ -76,11 +76,18 @@ class GeminiProvider(AIProvider):
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}:generateContent"
         try:
-            response = self.client.post(
-                url,
-                headers={"x-goog-api-key": settings.gemini_api_key},
-                json=payload,
-            )
+            response = None
+            retry_statuses = {429, 500, 502, 503, 504}
+            for attempt in range(4):
+                response = self.client.post(
+                    url,
+                    headers={"x-goog-api-key": settings.gemini_api_key},
+                    json=payload,
+                )
+                if response.status_code not in retry_statuses:
+                    break
+                if attempt < 3:
+                    time.sleep((2, 5, 10)[attempt])
             response.raise_for_status()
             candidates = response.json().get("candidates", [])
             if not candidates:
@@ -95,7 +102,10 @@ class GeminiProvider(AIProvider):
                 detail = exc.response.json().get("error", {}).get("message", "")
             except ValueError:
                 detail = ""
-            message = f"Gemini request failed: {detail}" if detail else "Gemini request failed. Check the API key and model name."
+            if exc.response.status_code in retry_statuses:
+                message = "خدمة Gemini مزدحمة مؤقتًا. حاول النظام أربع مرات تلقائيًا؛ انتظر قليلًا ثم أعد المحاولة."
+            else:
+                message = f"Gemini request failed: {detail}" if detail else "Gemini request failed. Check the API key and model name."
             raise RuntimeError(message) from exc
         except httpx.HTTPError as exc:
             raise RuntimeError("Gemini is unavailable. Check the internet connection and try again.") from exc

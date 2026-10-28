@@ -108,14 +108,17 @@ export default function SummaryStudio({ topicId, materialId }: { topicId: number
 
 function SummaryContent({content}:{content:string}){
   const lines=String(content||"").split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+  const headingIcons=["📘","🧠","🔑","🧩","📌","🎯","📝","✅"];
+  const pointIcons=["🔹","✅","📍","💡"];
+  let headingNumber=0;
   const inline=(value:string)=>value.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part,index)=>part.startsWith("**")&&part.endsWith("**")?<strong key={index}>{part.slice(2,-2)}</strong>:part);
   const itemBody=(item:string)=>{const marker=/([0-9٠-٩]+[.)-]\s*)/g,first=item.search(marker);if(first<0)return <p>{inline(item)}</p>;const intro=item.slice(0,first).trim(),numbered=item.slice(first).split(/(?=[0-9٠-٩]+[.)-]\s*)/).map(value=>value.replace(/^[0-9٠-٩]+[.)-]\s*/,"").trim()).filter(Boolean);return <div>{intro&&<p className="mb-2 font-bold">{inline(intro)}</p>}<ol className="summary-enumeration">{numbered.map((value,index)=><li key={index}>{inline(value)}</li>)}</ol></div>};
   return <div className="summary-document">{lines.map((line,index)=>{
     const heading=line.match(/^#{1,3}\s+(.+)/);
-    if(heading)return <h2 key={index}>{inline(heading[1])}</h2>;
+    if(heading){const position=headingNumber++;return <h2 key={index} className={`summary-tone-${position%4}`}><span aria-hidden>{headingIcons[position%headingIcons.length]}</span><span>{inline(heading[1])}</span></h2>}
     if(/^---+$/.test(line))return <hr key={index}/>;
     const bullet=line.match(/^[-*•✅🔹🔸📌]\s*(.+)/);
-    if(bullet)return <div key={index} className="summary-document-point"><span>•</span>{itemBody(bullet[1])}</div>;
+    if(bullet)return <div key={index} className={`summary-document-point summary-point-${index%4}`}><span aria-hidden>{pointIcons[index%pointIcons.length]}</span>{itemBody(bullet[1])}</div>;
     return <p key={index} className={index===0?"summary-intro":""}>{inline(line)}</p>;
   })}</div>;
 }

@@ -164,8 +164,8 @@ def list_subjects(db: Session, user_id: int) -> list[dict]:
     )
     result = []
     for subject, topic_count in rows:
-        summary_count = db.query(func.count(m.Summary.id)).join(m.Topic).filter(m.Topic.subject_id == subject.id).scalar() or 0
-        question_count = db.query(func.count(m.QuizQuestion.id)).join(m.Quiz).join(m.Topic).filter(m.Topic.subject_id == subject.id).scalar() or 0
+        summary_count = db.query(func.count(m.Summary.id)).join(m.Topic).filter(m.Topic.subject_id == subject.id, m.Summary.deleted_at.is_(None)).scalar() or 0
+        question_count = db.query(func.count(m.QuizQuestion.id)).join(m.Quiz).join(m.Topic).filter(m.Topic.subject_id == subject.id, m.Quiz.deleted_at.is_(None)).scalar() or 0
         brief = subject.description.strip() if subject.description else (f"A study space with {topic_count} lecture{'s' if topic_count != 1 else ''}." if topic_count else "Add your first lecture to start studying this subject.")
         result.append({**s.SubjectOut.model_validate(subject).model_dump(), "topic_count": topic_count, "summary_count": summary_count, "question_count": question_count, "brief": brief})
     return result

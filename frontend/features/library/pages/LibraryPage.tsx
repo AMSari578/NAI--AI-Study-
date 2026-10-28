@@ -54,13 +54,25 @@ export default function LibraryPage() {
       setError(reason.message);
     }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const refresh = () => { void load(); };
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    refresh();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, []);
 
   const localTotals = useMemo(() => ({
-    subjects: items.length,
-    summaries: items.reduce((total, item) => total + Number(item.summary_count || 0), 0),
-    quizzes: statistics.quizzes || 0,
-    concept_maps: statistics.concept_maps || 0,
+    subjects: Math.max(items.length, Number(statistics.subjects || 0)),
+    summaries: Math.max(items.reduce((total, item) => total + Number(item.summary_count || 0), 0), Number(statistics.summaries || 0)),
+    quizzes: Number(statistics.quizzes || 0),
+    concept_maps: Number(statistics.concept_maps || 0),
   }), [items, statistics]);
 
   async function add(event: React.FormEvent<HTMLFormElement>) {

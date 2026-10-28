@@ -619,16 +619,20 @@ a[href^="/subjects/"] h2[dir="auto"] {
 /* Long-form summary document — clean Markdown-like reading layout. */
 .summary-document { max-width:980px; margin-inline:auto; color:#293247; font-size:1rem; line-height:1.95; }
 .summary-document .summary-intro { margin-bottom:28px; color:#58657a; font-size:1.04rem; }
-.summary-document h2 { margin:34px 0 14px; padding-bottom:10px; border-bottom:1px solid #e2e8f0; color:#172033; font-size:1.28rem; font-weight:850; line-height:1.45; }
+.summary-document h2 { display:flex; align-items:center; gap:10px; margin:34px 0 14px; padding:13px 16px; border:1px solid #bfdbfe; border-inline-start:5px solid #3b82f6; border-radius:15px; background:#eff6ff; color:#1d4ed8; font-size:1.28rem; font-weight:850; line-height:1.45; }
+.summary-document h2.summary-tone-1 { border-color:#ddd6fe; border-inline-start-color:#8b5cf6; background:#f5f3ff; color:#6d28d9; }
+.summary-document h2.summary-tone-2 { border-color:#fde68a; border-inline-start-color:#f59e0b; background:#fffbeb; color:#a16207; }
+.summary-document h2.summary-tone-3 { border-color:#a7f3d0; border-inline-start-color:#10b981; background:#ecfdf5; color:#047857; }
 .summary-document h2:first-of-type { margin-top:12px; }
-.summary-document-point { display:grid; grid-template-columns:18px minmax(0,1fr); gap:8px; margin:8px 0; padding-inline:5px; }
+.summary-document-point { display:grid; grid-template-columns:24px minmax(0,1fr); gap:9px; margin:9px 0; padding:11px 13px; border:1px solid #e7edf6; border-radius:13px; background:#fbfdff; }
+.summary-document-point.summary-point-1 { background:#faf8ff; border-color:#eee7ff; }.summary-document-point.summary-point-2 { background:#fffdf5; border-color:#f9edc7; }.summary-document-point.summary-point-3 { background:#f6fffb; border-color:#d9f5e8; }
 .summary-document-point > span { padding-top:1px; color:var(--primary); font-size:1.2rem; font-weight:900; }
 .summary-document-point p { margin:0; }
 .summary-document strong { color:#111827; font-weight:850; }
 .summary-document hr { margin:38px 0 26px; border:0; border-top:1px solid #cfd8e6; }
 .summary-document .summary-enumeration { margin:8px 0 4px; padding-inline-start:24px; list-style:decimal; }
 .summary-document .summary-enumeration li { margin:7px 0; padding-inline-start:5px; }
-.dark .summary-document { color:#d7deeb; }.dark .summary-document .summary-intro { color:#aeb8ca; }.dark .summary-document h2 { border-color:#33425a; color:#f3f6ff; }.dark .summary-document strong { color:#fff; }.dark .summary-document hr { border-color:#3a4961; }
+.dark .summary-document { color:#d7deeb; }.dark .summary-document .summary-intro { color:#aeb8ca; }.dark .summary-document h2 { background:rgba(37,99,235,.16); border-color:#37578c; color:#bfdbfe; }.dark .summary-document h2.summary-tone-1{background:rgba(124,58,237,.16);border-color:#65479a;color:#ddd6fe}.dark .summary-document h2.summary-tone-2{background:rgba(245,158,11,.13);border-color:#7c5a24;color:#fde68a}.dark .summary-document h2.summary-tone-3{background:rgba(16,185,129,.13);border-color:#256c59;color:#a7f3d0}.dark .summary-document-point{background:#130d20;border-color:#392c50}.dark .summary-document strong { color:#fff; }.dark .summary-document hr { border-color:#3a4961; }
 @media(max-width:640px){.summary-document{font-size:.94rem;line-height:1.85}.summary-document h2{font-size:1.12rem;margin-top:27px}}
 
 /* True interactive concept-map canvas. */
