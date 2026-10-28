@@ -78,6 +78,8 @@ def dashboard(db=Depends(get_db), user=Depends(current_user)):
     statistics = {
         "subjects": db.query(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None)).count(),
         "quizzes": db.query(m.Quiz).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None), m.Quiz.deleted_at.is_(None)).count(),
+        "completed_quizzes": db.query(m.Quiz).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None), m.Quiz.deleted_at.is_(None), m.Quiz.score.is_not(None)).count(),
+        "completed_tasks": db.query(m.Task).filter(m.Task.user_id == user.id, m.Task.completed.is_(True)).count(),
         "summaries": db.query(m.Summary).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None), m.Summary.deleted_at.is_(None)).count(),
         "concept_maps": db.query(m.ConceptMap).join(m.Topic).join(m.Subject).filter(m.Subject.user_id == user.id, m.Subject.deleted_at.is_(None), m.ConceptMap.deleted_at.is_(None)).count(),
     }
