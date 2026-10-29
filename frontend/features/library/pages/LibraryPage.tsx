@@ -73,9 +73,9 @@ export default function LibraryPage() {
   const localTotals = useMemo(() => ({
     subjects: Math.max(items.length, Number(statistics.subjects || 0)),
     summaries: Math.max(items.reduce((total, item) => total + Number(item.summary_count || 0), 0), Number(statistics.summaries || 0)),
-    quizzes: Number(statistics.quizzes || 0),
-    concept_maps: Number(statistics.concept_maps || 0),
-  }), [items, statistics]);
+    quizzes: Math.max(Number(statistics.quizzes || 0), quizGroups.reduce((total, item) => total + Number(item.result_count || 0), 0)),
+    concept_maps: Math.max(Number(statistics.concept_maps || 0), mapGroups.reduce((total, item) => total + Number(item.result_count || 0), 0)),
+  }), [items, statistics, quizGroups, mapGroups]);
 
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
