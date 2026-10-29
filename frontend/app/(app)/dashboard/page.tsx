@@ -1,1 +1,1 @@
-export { default } from "@/features/dashboard/pages/DashboardOverview";
+export { default } from "@/features/dashboard/pages/DashboardHome";
