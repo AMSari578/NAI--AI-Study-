@@ -37,6 +37,9 @@ const statCards = [
 export default function LibraryPage() {
   const [items, setItems] = useState<any[]>([]);
   const [statistics, setStatistics] = useState<Record<string, number>>({});
+  const [quizGroups, setQuizGroups] = useState<any[]>([]);
+  const [summaries, setSummaries] = useState<any[]>([]);
+  const [mapGroups, setMapGroups] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [icon, setIcon] = useState("book");
   const [color, setColor] = useState("#2563EB");
@@ -45,13 +48,19 @@ export default function LibraryPage() {
   const [error, setError] = useState("");
 
   async function load() {
-    const [subjectsResult, statisticsResult] = await Promise.allSettled([
+    const [subjectsResult, statisticsResult, quizzesResult, summariesResult, mapsResult] = await Promise.allSettled([
       api<any[]>("/subjects"),
       api<Record<string, number>>("/statistics"),
+      api<any[]>("/results/quizzes"),
+      api<any[]>("/summary-bank"),
+      api<any[]>("/results/concept-maps"),
     ]);
     if (subjectsResult.status === "fulfilled") setItems(subjectsResult.value);
     if (statisticsResult.status === "fulfilled") setStatistics(statisticsResult.value || {});
-    const failed = [subjectsResult, statisticsResult].find(result => result.status === "rejected") as PromiseRejectedResult | undefined;
+    if (quizzesResult.status === "fulfilled") setQuizGroups((quizzesResult.value || []).filter(item => Number(item.result_count) > 0));
+    if (summariesResult.status === "fulfilled") setSummaries(summariesResult.value || []);
+    if (mapsResult.status === "fulfilled") setMapGroups((mapsResult.value || []).filter(item => Number(item.result_count) > 0));
+    const failed = [subjectsResult, statisticsResult, quizzesResult, summariesResult, mapsResult].find(result => result.status === "rejected") as PromiseRejectedResult | undefined;
     setError(failed ? String(failed.reason?.message || "تعذر تحديث بعض الإحصائيات.") : "");
   }
   useEffect(() => {
@@ -155,6 +164,21 @@ export default function LibraryPage() {
       </div>
     </section>
 
+    <LibraryShelf title="جميع الاختبارات" subtitle="كل الاختبارات التي أنشأتها من مختلف المواد." emoji="🧠" count={localTotals.quizzes} viewAll="/tests">
+      {quizGroups.slice(0,4).map(item=><ShelfCard key={item.id} href={item.latest_topic_id?`/topics/${item.latest_topic_id}?tab=quiz`:`/subjects/${item.id}`} title={item.name} meta={`${item.result_count} اختبارات`} emoji="📝"/>)}
+      {!quizGroups.length&&<ShelfEmpty text="لا توجد اختبارات محفوظة بعد."/>}
+    </LibraryShelf>
+
+    <LibraryShelf title="جميع الملخصات" subtitle="ملخصاتك البسيطة والمتوسطة والشاملة." emoji="✨" count={localTotals.summaries} viewAll="/summaries">
+      {summaries.slice(0,4).map(item=><ShelfCard key={item.id} href={`/topics/${item.topic_id}?tab=summary`} title={item.topic_title||item.subject_name} meta={`${item.subject_name} · ${item.summary_type==='detailed'?'شامل':item.summary_type==='medium'?'متوسط':'بسيط'}`} emoji="📄"/>)}
+      {!summaries.length&&<ShelfEmpty text="لا توجد ملخصات محفوظة بعد."/>}
+    </LibraryShelf>
+
+    <LibraryShelf title="جميع خرائط المفاهيم" subtitle="الخرائط التي تربط أفكار دروسك بصريًا." emoji="🗺️" count={localTotals.concept_maps} viewAll="/results/concept-maps">
+      {mapGroups.slice(0,4).map(item=><ShelfCard key={item.id} href={item.latest_topic_id?`/topics/${item.latest_topic_id}?tab=concept-map`:`/subjects/${item.id}`} title={item.name} meta={`${item.result_count} خرائط`} emoji="🔗"/>)}
+      {!mapGroups.length&&<ShelfEmpty text="لا توجد خرائط مفاهيم محفوظة بعد."/>}
+    </LibraryShelf>
+
     <Modal open={open} onClose={() => setOpen(false)} title="إضافة مادة جديدة">
       <form onSubmit={add} className="space-y-5" dir="rtl">
         {error&&<p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
@@ -169,3 +193,7 @@ export default function LibraryPage() {
     </Modal>
   </div>;
 }
+
+function LibraryShelf({title,subtitle,emoji,count,viewAll,children}:{title:string;subtitle:string;emoji:string;count:number;viewAll:string;children:React.ReactNode}){return <section className="mt-12"><div className="flex flex-wrap items-end justify-between gap-4"><div><div className="flex items-center gap-3"><span className="text-3xl" aria-hidden>{emoji}</span><h2 className="text-2xl font-black">{title}</h2></div><p className="mt-2 text-sm text-slate-500">{subtitle}</p></div><div className="flex items-center gap-3"><span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-black text-primary">{count}</span><Link href={viewAll} className="btn btn-secondary text-sm">عرض الكل</Link></div></div><div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">{children}</div></section>}
+function ShelfCard({href,title,meta,emoji}:{href:string;title:string;meta:string;emoji:string}){return <Link href={href} className="card group flex min-h-[145px] items-center gap-4 bg-white p-5 transition hover:-translate-y-1 hover:shadow-md"><span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-50 text-2xl">{emoji}</span><span className="min-w-0 flex-1"><b className="block truncate text-lg">{title}</b><small className="mt-2 block truncate text-slate-500">{meta}</small></span><ChevronLeft className="text-slate-300 transition group-hover:-translate-x-1 group-hover:text-primary" size={19}/></Link>}
+function ShelfEmpty({text}:{text:string}){return <p className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white/60 py-10 text-center text-sm text-slate-500">{text}</p>}
