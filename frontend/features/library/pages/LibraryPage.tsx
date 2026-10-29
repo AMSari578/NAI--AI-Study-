@@ -27,13 +27,6 @@ const icons: Record<string, any> = {
 const iconChoices = ["book", "science", "math", "code", "languages", "atom"];
 const colors = ["#2563EB", "#7C3AED", "#F59E0B", "#0F9B83", "#E11D48", "#64748B"];
 
-const statCards = [
-  { key: "subjects", label: "المواد", emoji: "📚", color: "#2563EB", tint: "#E8F0FF" },
-  { key: "quizzes", label: "الاختبارات", emoji: "🧠", color: "#CC6900", tint: "#FFF0E0" },
-  { key: "summaries", label: "الملخصات", emoji: "✨", color: "#7C3AED", tint: "#F1E8FF" },
-  { key: "concept_maps", label: "خرائط المفاهيم", emoji: "🗺️", color: "#07866F", tint: "#E2F4EF" },
-] as const;
-
 export default function LibraryPage() {
   const [items, setItems] = useState<any[]>([]);
   const [statistics, setStatistics] = useState<Record<string, number>>({});
@@ -130,19 +123,10 @@ export default function LibraryPage() {
       <button onClick={() => setOpen(true)} className="btn btn-primary library-add"><Plus size={18}/>إضافة مادة</button>
     </header>
 
-    <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {statCards.map(card => <article key={card.key} className="library-stat group" style={{"--stat-color":card.color,"--stat-tint":card.tint} as React.CSSProperties}>
-        <span className="library-stat-glow"/>
-        <span className="library-stat-emoji" aria-hidden>{card.emoji}</span>
-        <strong>{localTotals[card.key] || 0}</strong>
-        <div><span>{card.label}</span><ChevronLeft size={20}/></div>
-      </article>)}
-    </section>
-
-    <section className="mt-10">
+    <section id="all-subjects" className="mt-10">
       <div className="flex items-end justify-between gap-4">
         <div><h2 className="text-2xl font-black">جميع المواد</h2><p className="mt-1 text-sm text-slate-500">تتحدث تلقائيًا عند إضافة درس أو ملف جديد.</p></div>
-        <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-black text-primary">{items.length} مواد</span>
+        <div className="flex items-center gap-3"><span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-black text-primary">{items.length} مواد</span><Link href="/subjects#all-subjects" className="btn btn-secondary text-sm">عرض الكل</Link></div>
       </div>
       {error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-red-600">{error}</p>}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
