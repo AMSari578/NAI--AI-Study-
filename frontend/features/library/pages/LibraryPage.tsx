@@ -80,25 +80,18 @@ export default function LibraryPage() {
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const file = form.get("file") as File;
     const data: any = {name:form.get("name"),description:form.get("description")};
     data.icon = icon;
     data.color = color;
     setSaving(true);
-    let createdSubject:any;
     try {
-      createdSubject = await post("/subjects", data);
-      const topic:any = await post(`/subjects/${createdSubject.id}/topics`, {title:file.name.replace(/\.[^.]+$/, "") || data.name, description:data.description || ""});
-      const upload = new FormData();
-      upload.append("file", file);
-      await post(`/topics/${topic.id}/materials`, upload);
+      await post("/subjects", data);
       setOpen(false);
       setIcon("book");
       setColor("#2563EB");
       await load();
     } catch (reason:any) {
-      if(createdSubject?.id) await del(`/subjects/${createdSubject.id}`).catch(()=>undefined);
-      setError(reason.message || "تعذر إنشاء المادة أو قراءة الملف.");
+      setError(reason.message || "تعذر إنشاء المادة.");
     } finally { setSaving(false); }
   }
 
@@ -168,11 +161,10 @@ export default function LibraryPage() {
         {error&&<p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
         <label className="block text-sm font-black">اسم المادة<input required name="name" className="field mt-2" placeholder="مثال: علم الأدوية"/></label>
         <label className="block text-sm font-black">وصف مختصر<textarea name="description" className="field mt-2" placeholder="ماذا ستدرس في هذه المادة؟"/></label>
-        <label className="block text-sm font-black">ملف المادة<input required name="file" type="file" accept=".pdf,.txt,image/png,image/jpeg,image/webp" className="field mt-2"/><small className="mt-2 block font-normal text-slate-500">PDF أو صورة أو ملف نصي، بحد أقصى 15MB.</small></label>
         <fieldset><legend className="text-sm font-black">اختر أيقونة</legend><div className="mt-3 grid grid-cols-6 gap-2">{iconChoices.map(key => {const Icon=icons[key];return <button type="button" key={key} onClick={()=>setIcon(key)} className={`grid aspect-square place-items-center rounded-xl border-2 transition ${icon===key?"border-primary bg-blue-50 text-primary":"border-slate-200 text-slate-500 hover:border-primary"}`}><Icon size={20}/></button>})}</div></fieldset>
         <fieldset><legend className="text-sm font-black">اختر لون المادة</legend><div className="mt-3 flex flex-wrap gap-3">{colors.map(value=><button type="button" key={value} onClick={()=>setColor(value)} className={`h-9 w-9 rounded-full transition ${color===value?"scale-110 ring-4 ring-slate-300 ring-offset-2":""}`} style={{backgroundColor:value}} aria-label={value}/>)}</div></fieldset>
         <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><span className="grid h-11 w-11 place-items-center rounded-xl" style={{backgroundColor:`${color}18`,color}}>{(() => {const Icon=icons[icon];return <Icon size={21}/>})()}</span><p className="text-sm text-slate-500">ستظهر المادة بهذه الأيقونة واللون.</p></div>
-        <button disabled={saving} className="btn btn-primary w-full">{saving?"جارٍ إنشاء المادة وقراءة الملف...":"حفظ المادة ورفع الملف"}</button>
+        <button disabled={saving} className="btn btn-primary w-full">{saving?"جارٍ إنشاء مجلد المادة...":"إنشاء مجلد المادة"}</button>
       </form>
     </Modal>
   </div>;
