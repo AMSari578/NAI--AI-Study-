@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, LoaderCircle, Plus, RefreshCw, Trash2, UploadCloud } from "lucide-react";
 import { api, del, post } from "@/lib/api";
 import Modal from "@/components/ui/Modal";
+import { dateLocale, useLanguage } from "@/lib/i18n";
 
 export default function SubjectFilesPage({params}:{params:Promise<{id:string}>}){
-  const{id}=use(params),router=useRouter();
+  const{id}=use(params),router=useRouter(),{language}=useLanguage();
   const[data,setData]=useState<any>(),[open,setOpen]=useState(false),[saving,setSaving]=useState(false),[deleting,setDeleting]=useState<number|null>(null),[processing,setProcessing]=useState<number|null>(null),[error,setError]=useState("");
   const load=()=>api(`/subjects/${id}`).then(setData).catch((reason:any)=>setError(reason.message));
   useEffect(()=>{void load()},[id]);
@@ -44,7 +45,7 @@ export default function SubjectFilesPage({params}:{params:Promise<{id:string}>})
           <Link href={`/topics/${item.topic_id}`} className="block min-w-0 flex-1 p-5">
             <div className="flex items-start justify-between"><span className="material-file-icon"><FileText size={25}/></span><ArrowLeft className="material-card-arrow" size={20}/></div>
             <h3 dir="auto" className="mt-6 truncate text-lg font-black">{item.file_name}</h3>
-            <p className="mt-2 text-sm text-slate-500">{item.topic_title} · {item.extracted_text?`${item.extracted_text.length.toLocaleString("ar-SA")} حرف مقروء`:"قيد القراءة"}</p>
+            <p className="mt-2 text-sm text-slate-500">{item.topic_title} · {item.extracted_text?`${item.extracted_text.length.toLocaleString(dateLocale(language))} حرف مقروء`:"قيد القراءة"}</p>
             <div className="mt-5 flex flex-wrap gap-2"><span>✨ ملخص</span><span>🧠 اختبار</span><span>🗂️ فلاش كارد</span></div>
           </Link>
           <button disabled={processing===item.id} onClick={()=>void reprocess(item)} className="material-reprocess" title="إعادة قراءة الملف بعمق"><RefreshCw className={processing===item.id?"animate-spin":""} size={16}/><span>{processing===item.id?"جارٍ القراءة...":"إعادة القراءة"}</span></button>

@@ -317,8 +317,8 @@ Never use source labels, point numbers, metadata, or commentary."""
         question, answer = str(item.get("question", "")).strip(), str(item.get("answer", "")).strip()
         if not question or not answer or question.lower() in seen:
             continue
-        if not question.endswith("?"):
-            question += "?"
+        if not question.endswith(("?", "؟")):
+            question += "؟" if body.language == "arabic" else "?"
         seen.add(question.lower())
         cards.append(m.Flashcard(topic_id=topic.id, question=question, answer=answer))
     if not cards:

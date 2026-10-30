@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 export type AppLanguage = "ar" | "en";
+export const dateLocale = (language: AppLanguage) => language === "ar" ? "ar-SA" : "en-US";
 
 const ar: Record<string, string> = {
   "Dashboard":"الرئيسية","Subjects":"المواد","Library":"المكتبة","Summaries":"الملخصات","Tests":"الاختبارات","Review":"المراجعة","Ask the teacher":"اسأل المدرس","Trash":"سلة المهملات",
@@ -85,6 +86,7 @@ const ar: Record<string, string> = {
   "Subject files":"ملفات المادة","Open any file to create summaries, quizzes, flashcards, and concept maps.":"افتح أي ملف للانتقال إلى الملخص والاختبار والفلاش كارد وخريطة المفاهيم.",
   "No files yet":"لا توجد ملفات بعد","Add the first file to start studying.":"أضف أول ملف لهذه المادة لبدء الدراسة.","Add a file to the subject":"إضافة ملف للمادة","File or lesson name":"اسم الملف أو الدرس","File description":"وصف مختصر لمحتوى الملف","Upload file":"رفع الملف","Uploading and reading the file...":"جارٍ رفع الملف وقراءته...",
   "Create a simple, medium, or comprehensive summary":"أنشئ ملخصًا بسيطًا أو متوسطًا أو شاملًا","Test your understanding using the file content":"اختبر فهمك بأسئلة من محتوى الملف","Concept maps":"خرائط المفاهيم","Connect the most important ideas in an interactive map":"اربط أهم الأفكار في خريطة تفاعلية","Chat with the AI teacher about this file":"تحدث مع المدرس الذكي حول هذا الملف",
+  "Everything for this lecture in one study space.":"كل ما يخص هذه المحاضرة في مساحة دراسة واحدة.","← Back to lecture":"→ العودة إلى المحاضرة","Ask NAI Study":"اسأل NAI Study","Using page":"باستخدام الصفحة","Question bank":"بنك الأسئلة","All generated questions from every subject in one place.":"كل الأسئلة المُنشأة من جميع المواد في مكان واحد.","Delete all questions":"حذف كل الأسئلة","Topic":"الدرس","All topics":"كل الدروس","questions":"أسئلة","Correct answer:":"الإجابة الصحيحة:","Due flashcards, mistakes, weak ideas, and anything you intentionally marked for review.":"البطاقات المستحقة والأخطاء والأفكار الضعيفة وكل ما حددته للمراجعة.","Lecture":"المحاضرة","Summary library":"مكتبة الملخصات","All saved summaries from every subject in one place.":"كل الملخصات المحفوظة من جميع المواد في مكان واحد.","Delete all summaries":"حذف كل الملخصات","summaries":"ملخصات","summaries ·":"ملخصات ·","simple":"بسيط","medium":"متوسط","detailed":"شامل","key_points":"نقاط رئيسية","exam_review":"مراجعة للاختبار","memorize":"للحفظ","quizzes":"اختبارات","maps":"خرائط","cards":"بطاقات","sessions":"جلسات","Concept Maps":"خرائط المفاهيم","Ask NAI Study Sessions":"جلسات اسأل NAI Study","All quizzes":"جميع الاختبارات","All the quizzes you created across your subjects.":"كل الاختبارات التي أنشأتها من مختلف المواد.","All summaries":"جميع الملخصات","Your simple, medium and comprehensive summaries.":"ملخصاتك البسيطة والمتوسطة والشاملة.","All concept maps":"جميع خرائط المفاهيم","Maps that visually connect your lesson ideas.":"الخرائط التي تربط أفكار دروسك بصريًا.","Plan your work and mark each task when it is complete.":"خطط لعملك وعلّم كل مهمة عند إنجازها.","pending":"قيد الانتظار","Study":"دراسة","Completed":"مكتملة","Add a new task":"إضافة مهمة جديدة","Delete task":"حذف المهمة","Study reminders":"تذكيرات الدراسة","Never miss a review session.":"لا تفوّت أي جلسة مراجعة.","Add reminder":"إضافة تذكير","Delete reminder":"حذف التذكير","Your study schedule":"جدولك الدراسي","Study plans, tasks, reminders, and exams in one educational calendar.":"الخطط الدراسية والمهام والتذكيرات والاختبارات في تقويم واحد.","month":"شهر","week":"أسبوع","Organize your study":"نظّم دراستك","Study planner":"مخطط الدراسة","Create exams and realistic manual or AI-powered plans.":"أضف اختباراتك وأنشئ خططًا يدوية أو بالذكاء الاصطناعي.","Plans":"الخطط","Manual plan":"خطة يدوية","Plan with NAI Study":"خطط مع NAI Study","Exams":"الاختبارات","Create a manual plan or ask NAI Study to build one.":"أنشئ خطة يدوية أو اطلب من NAI Study إعدادها.","Open month/week calendar":"فتح التقويم الشهري/الأسبوعي","correct ·":"صحيحة ·","incorrect ·":"خاطئة ·","card reviews":"مراجعات بطاقات","Not started":"لم يبدأ","Your study library":"مكتبتك الدراسية","Search NAI Study":"البحث في NAI Study","Search your subjects, lectures, files, notes, flashcards, and previous questions.":"ابحث في موادك ومحاضراتك وملفاتك وملاحظاتك وبطاقاتك وأسئلتك السابقة.","Search your learning materials...":"ابحث في موادك الدراسية...","English interface with left-to-right layout":"واجهة إنجليزية واتجاه من اليسار إلى اليمين","Full Arabic interface with right-to-left layout":"واجهة عربية كاملة واتجاه من اليمين إلى اليسار","Choose a lecture, material, and duration. Only the material, notes, NAI Study, and timer remain visible.":"اختر المحاضرة والملف والمدة. لن يظهر إلا الملف والملاحظات وNAI Study والمؤقت.","Choose subject":"اختر المادة","Choose lecture":"اختر المحاضرة","minutes":"دقيقة","Exam preparation":"الاستعداد للاختبار","Choose lectures and question types. Answers, hints, and tutoring stay hidden until submission.":"اختر المحاضرات وأنواع الأسئلة. تبقى الإجابات والتلميحات والشرح مخفية حتى التسليم.","Question types":"أنواع الأسئلة","Number of questions":"عدد الأسئلة","Difficulty":"الصعوبة","Mixed difficulty":"صعوبة متنوعة","Medium":"متوسط","Time limit":"المدة","Start exam":"ابدأ الاختبار","NAI Study tools":"أدوات NAI Study","AI Study Tutor":"المدرس الذكي","Choose Teach me, Quick review, or Quiz me for this lecture.":"اختر: علّمني، أو مراجعة سريعة، أو اختبرني لهذه المحاضرة.","Ask questions and receive an explanation based on your lecture.":"اسأل واحصل على شرح مبني على محاضرتك.","Create a simple or detailed summary from your material.":"أنشئ ملخصًا بسيطًا أو شاملًا من ملفك.","Create question-and-answer cards to review your lecture.":"أنشئ بطاقات سؤال وجواب لمراجعة محاضرتك.","Turn the important ideas into a connected visual map.":"حوّل الأفكار المهمة إلى خريطة بصرية مترابطة.","Generate questions and test your understanding.":"أنشئ أسئلة واختبر فهمك.","Upload materials":"رفع الملفات","Add a PDF, image, or text to a specific lecture.":"أضف ملف PDF أو صورة أو نصًا إلى محاضرة محددة.","Open and manage your notes for a chosen lecture.":"افتح ملاحظاتك وأدرها لمحاضرة محددة.","Continue to":"المتابعة إلى","Dark":"داكن","Study dashboard":"لوحة الدراسة","Hello":"مرحبًا","Track your progress, finish your tasks, and return to your last lesson from one place.":"تابع تقدمك، أكمل مهامك، وارجع إلى آخر درس من مكان واحد.","Continue last lesson":"متابعة آخر درس","Your plan today":"خطتك اليوم","Add your first task":"أضف أول مهمة","Quick access":"وصول سريع","Start your most important study activities":"ابدأ أهم أنشطتك الدراسية","Open library":"فتح المكتبة","Choose a subject or add files":"اختر مادة أو أضف ملفات","Test your understanding from your files":"اختبر فهمك من ملفاتك","Explain and ask about any lesson":"اشرح واسأل عن أي درس","Today's tasks":"مهام اليوم","completed ·":"مكتملة ·","remaining":"متبقية","View all":"عرض الكل","You completed":"أنجزت","% of your tasks":"% من مهامك","Upcoming dates":"المواعيد القادمة","Ready for review":"جاهز للمراجعة","Cards":"بطاقات","Jump back into your recent lessons":"ارجع بسرعة إلى دروسك الأخيرة","What you studied last":"آخر ما درسته","Coming exams":"اختبارات قادمة","files":"ملفات","Task title":"عنوان المهمة","Details":"تفاصيل","Due date":"الموعد","Save task":"حفظ المهمة","subjects":"مواد","lessons ·":"دروس ·","✨ Summary":"✨ ملخص","🧠 Quiz":"🧠 اختبار","🗂️ Flashcards":"🗂️ فلاش كارد","Re-read":"إعادة القراءة","Re-read the file in depth":"إعادة قراءة الملف بعمق","🗑️ Deleted items":"🗑️ العناصر المحذوفة","Restore anything deleted by mistake, or delete it permanently.":"استعد أي عنصر حُذف بالخطأ، أو احذفه نهائيًا.","Trash is empty":"السلة فارغة","No deleted items right now.":"لا توجد عناصر محذوفة حاليًا.",
 };
 
 const englishByArabic = new Map(Object.entries(ar).map(([english, arabic]) => [arabic, english]));
@@ -95,8 +97,13 @@ function translateDynamic(text: string): string {
   const exact = ar[text.trim()];
   if (exact) return text.replace(text.trim(), exact);
   return text
+    .replace(/^(\s*)Mark (.+) as pending(\s*)$/, "$1إرجاع «$2» إلى قيد الانتظار$3")
+    .replace(/^(\s*)Mark (.+) as complete(\s*)$/, "$1تعليم «$2» كمكتملة$3")
+    .replace(/^(\s*)Delete (.+?)(\s*)$/, "$1حذف $2$3")
+    .replace(/(\d+) minutes/g, "$1 دقيقة")
     .replace(/(\d+) pending/g, "$1 قيد الانتظار")
     .replace(/(\d+) completed/g, "$1 مكتملة")
+    .replace(/(\d+) saved lectures/g, "$1 محاضرات محفوظة")
     .replace(/(\d+) saved/g, "$1 محفوظ")
     .replace(/(\d+) questions/g, "$1 أسئلة")
     .replace(/(\d+) materials/g, "$1 ملفات")
@@ -115,22 +122,30 @@ function translateToEnglish(text:string):string{
     .replace(/(\d+) ملفات/g,"$1 files")
     .replace(/(\d+) ملخصات/g,"$1 summaries")
     .replace(/(\d+) أسئلة/g,"$1 questions")
+    .replace(/(\d+) اختبارات/g,"$1 quizzes")
+    .replace(/(\d+) خرائط/g,"$1 maps")
+    .replace(/· بسيط/g,"· Simple")
+    .replace(/· متوسط/g,"· Medium")
+    .replace(/· شامل/g,"· Detailed")
+    .replace(/^(\s*)حذف (.+?)(\s*)$/,"$1Delete $2$3")
     .replace(/حرف مقروء/g,"readable characters")
     .replace(/قيد القراءة/g,"processing");
 }
 
 function LegacyTranslator({language}:{language:AppLanguage}) {
-  const originalsRef=useRef(new Map<Text,string>());
-  const attributeOriginalsRef=useRef(new Map<Element,Map<string,string>>());
+  const originalsRef=useRef(new Map<Text,{original:string,translated:string}>());
+  const attributeOriginalsRef=useRef(new Map<Element,Map<string,{original:string,translated:string}>>());
   useEffect(()=>{
     const originals=originalsRef.current;
     const attributeOriginals=attributeOriginalsRef.current;
     const translateText=(textNode:Text)=>{
       const parent=textNode.parentElement;
       if(!parent||["SCRIPT","STYLE","CODE","PRE"].includes(parent.tagName)) return;
-      if(!originals.has(textNode)) originals.set(textNode,textNode.data);
-      const original=originals.get(textNode)!;
+      const seen=originals.get(textNode);
+      // React updated this node since we last translated it, so its new text is the new original.
+      const original=seen&&textNode.data===seen.translated?seen.original:textNode.data;
       const next=language==="ar"?translateDynamic(original):translateToEnglish(original);
+      originals.set(textNode,{original,translated:next});
       if(textNode.data!==next) textNode.data=next;
     };
     const translateNode = (root: Node) => {
@@ -143,8 +158,9 @@ function LegacyTranslator({language}:{language:AppLanguage}) {
         for(const name of ["placeholder","aria-label","title"]){
           const value=element.getAttribute(name); if(!value) continue;
           let map=attributeOriginals.get(element); if(!map){map=new Map();attributeOriginals.set(element,map)}
-          if(!map.has(name)) map.set(name,value);
-          const original=map.get(name)!; const next=language==="ar"?translateDynamic(original):translateToEnglish(original);
+          const seen=map.get(name); const original=seen&&value===seen.translated?seen.original:value;
+          const next=language==="ar"?translateDynamic(original):translateToEnglish(original);
+          map.set(name,{original,translated:next});
           if(value!==next) element.setAttribute(name,next);
         }
       }
