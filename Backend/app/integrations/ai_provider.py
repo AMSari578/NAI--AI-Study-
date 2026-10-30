@@ -242,6 +242,18 @@ class LocalStudyProvider(AIProvider):
         sentences = self._sentences(context)
         words = [w.strip(".,:;()[]") for w in context.split() if len(w) > 5][:20] or ["Topic", "Concept", "Review"]
         arabic = "in Arabic" in prompt or bool(re.search(r"[\u0600-\u06ff]", prompt))
+        if "study summary" in prompt.lower():
+            source = sentences[:12] or ["No readable study text was found."]
+            points = [{"term": (self._keywords(sentence) or ["\u2022"])[0], "explanation": sentence} for sentence in source]
+            return {
+                "title": "\u0645\u0644\u062e\u0635 \u0627\u0644\u062f\u0631\u0633" if arabic else "Lesson summary",
+                "subtitle": "\u0645\u0644\u062e\u0635 \u0645\u0633\u062a\u062e\u0631\u062c \u0645\u0628\u0627\u0634\u0631\u0629 \u0645\u0646 \u0627\u0644\u0645\u0627\u062f\u0629 \u0627\u0644\u0645\u0631\u0641\u0648\u0639\u0629." if arabic else "An extractive summary based directly on the uploaded material.",
+                "introduction": source[0],
+                "sections": [{"emoji": "\ud83d\udccc", "heading": "\u0623\u0647\u0645 \u0627\u0644\u0646\u0642\u0627\u0637" if arabic else "Key points", "paragraph": "", "points": points, "subsections": []}],
+                "key_table": {"columns": [], "rows": [[point["term"], point["explanation"][:120]] for point in points[:5]]},
+                "remember": source[:3],
+                "conclusion": "\u0631\u0627\u062c\u0639 \u0627\u0644\u0645\u0635\u0637\u0644\u062d\u0627\u062a \u0627\u0644\u0633\u0627\u0628\u0642\u0629 \u062b\u0645 \u0627\u062e\u062a\u0628\u0631 \u0646\u0641\u0633\u0643." if arabic else "Review the terms above, then test yourself.",
+            }
         if "flashcard" in prompt.lower():
             source = sentences or ["No readable study text was found."]
             requested = min(20, max(1, int(re.search(r"(\d+)", prompt).group(1)) if re.search(r"(\d+)", prompt) else 10))

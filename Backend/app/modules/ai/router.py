@@ -167,22 +167,94 @@ def delete_summary(summary_id: int, db=Depends(get_db), user=Depends(current_use
     db.commit()
 
 
+ARABIC_ORDINALS = ["أولًا", "ثانيًا", "ثالثًا", "رابعًا", "خامسًا", "سادسًا", "سابعًا", "ثامنًا", "تاسعًا", "عاشرًا"]
+ARABIC_LETTERS = ["أ", "ب", "ج", "د", "هـ", "و", "ز", "ح", "ط", "ي"]
+ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"]
+
+
+def _clean(value) -> str:
+    """Flatten an AI field to one Markdown-safe line."""
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def _section_label(index: int, arabic: bool) -> str:
+    if arabic:
+        return ARABIC_ORDINALS[index] if index < len(ARABIC_ORDINALS) else f"{index + 1}."
+    return f"{ROMAN[index]}." if index < len(ROMAN) else f"{index + 1}."
+
+
+def _subsection_label(index: int, arabic: bool) -> str:
+    if arabic:
+        return f"{ARABIC_LETTERS[index]}." if index < len(ARABIC_LETTERS) else f"{index + 1}."
+    return f"{chr(65 + index)}." if index < 26 else f"{index + 1}."
+
+
+def _points_markdown(points) -> list[str]:
+    lines = []
+    for number, point in enumerate(points or [], start=1):
+        if isinstance(point, dict):
+            term, explanation = _clean(point.get("term")), _clean(point.get("explanation"))
+        else:
+            term, explanation = "", _clean(point)
+        if term and explanation:
+            lines.append(f"{number}. **{term.strip('*')}** — {explanation}")
+        elif term or explanation:
+            lines.append(f"{number}. {term or explanation}")
+    return lines
+
+
+def summary_markdown(data: dict, arabic: bool) -> str:
+    """Render the structured summary as Markdown in the layout of the student summary template."""
+    blocks = [f"# {_clean(data.get('title')) or ('ملخص الدرس' if arabic else 'Lesson summary')}"]
+    if _clean(data.get("subtitle")):
+        blocks.append(f"> {_clean(data.get('subtitle'))}")
+    if _clean(data.get("introduction")):
+        blocks.append(_clean(data.get("introduction")))
+    sections = [section for section in data.get("sections") or [] if isinstance(section, dict) and _clean(section.get("heading"))]
+    for index, section in enumerate(sections):
+        emoji = _clean(section.get("emoji"))
+        blocks.append(f"## {_section_label(index, arabic)} {emoji + ' ' if emoji else ''}{_clean(section.get('heading'))}")
+        if _clean(section.get("paragraph")):
+            blocks.append(_clean(section.get("paragraph")))
+        blocks.extend(_points_markdown(section.get("points")))
+        subsections = [sub for sub in section.get("subsections") or [] if isinstance(sub, dict) and _clean(sub.get("heading"))]
+        for sub_index, sub in enumerate(subsections):
+            blocks.append(f"### {_subsection_label(sub_index, arabic)} {_clean(sub.get('heading'))}")
+            if _clean(sub.get("paragraph")):
+                blocks.append(_clean(sub.get("paragraph")))
+            blocks.extend(_points_markdown(sub.get("points")))
+    table = data.get("key_table") if isinstance(data.get("key_table"), dict) else {}
+    rows = [row for row in table.get("rows") or [] if isinstance(row, list) and len(row) >= 2]
+    if rows:
+        columns = [_clean(column) for column in (table.get("columns") or [])[:2]]
+        if len(columns) < 2 or not all(columns):
+            columns = ["المصطلح", "المعنى"] if arabic else ["Term", "Meaning"]
+        cell = lambda value: _clean(value).replace("|", "/")
+        blocks.append(f"## 📊 {'جدول المفاهيم الأساسية' if arabic else 'Key Concepts at a Glance'}")
+        blocks.append("\n".join([f"| {cell(columns[0])} | {cell(columns[1])} |", "| --- | --- |"] + [f"| {cell(row[0])} | {cell(row[1])} |" for row in rows]))
+    remember = [_clean(item) for item in data.get("remember") or [] if _clean(item)]
+    if remember:
+        blocks.append(f"## ⭐ {'تذكّر للاختبار' if arabic else 'Remember for the Exam'}")
+        blocks.extend(f"- {item}" for item in remember)
+    if _clean(data.get("conclusion")):
+        blocks.append("---")
+        blocks.append(f"## 🏁 {'الخلاصة' if arabic else 'Conclusion'}")
+        blocks.append(_clean(data.get("conclusion")))
+    return "\n\n".join(blocks)
+
+
 @router.post("/ai/summarize")
 def summarize(body: s.GenerateIn, db=Depends(get_db), user=Depends(current_user)):
     topic = topic_for(db, body.topic_id, user.id)
-    language = "Arabic" if body.language == "arabic" else "English"
-    heading_guidance = (
-        "اكتب عناوين عربية وصفية خاصة بموضوع الملف نفسه، مثل: الهدف والأهداف، الأنواع، المراحل والخطوات، الأدوار والمسؤوليات، المقارنات، والتوثيق. لا تستخدم عناوين عامة إذا كان بالإمكان تسميتها باسم المفهوم الحقيقي."
-        if body.language == "arabic"
-        else "Write descriptive English headings specific to the file itself, such as Purpose and Objectives, Types, Phases and Steps, Roles and Responsibilities, Comparisons, and Documentation. Prefer the real concept name over a generic heading."
-    )
-    rules = {
-        "detailed": "COMPREHENSIVE MODE: extract every supported concept, definition, term, fact, list item, role, relationship, process step, condition, exception, formula, example, number, and memorization point. Minor but meaningful details must not be skipped.",
-        "medium": "BALANCED MODE: cover all major sections, core concepts, definitions, important lists, processes, comparisons, and the most useful stated examples. Omit only minor repetition and low-value details.",
-        "key_points": "Extract concise key points only, grouped by concept.",
-        "exam_review": "Create an exam-focused review with likely tested concepts, comparisons, processes, and common mistakes.",
-        "memorize": "List exactly what the student should memorize, with short memory cues.",
-        "simple": "SIMPLE MODE: represent the whole file using only its central idea and the highest-value facts. Omit examples, minor details, repetition, and secondary facts.",
+    arabic = body.language == "arabic"
+    language = "Arabic" if arabic else "English"
+    depth = {
+        "simple": "SIMPLE: the central idea and only the highest-value information. 3 to 4 sections, 2 to 4 points each, no subsections, 3 to 5 table rows, 3 to 5 remember items.",
+        "medium": "BALANCED: every major part of the file with its core definitions, lists, steps, and comparisons. 4 to 7 sections, 3 to 6 points each, subsections only where the file has clear sub-parts, 5 to 8 table rows, 5 to 7 remember items.",
+        "detailed": "COMPREHENSIVE: every concept, definition, list item, step, role, condition, exception, number, and stated example that a student could be tested on. As many sections as the file needs (usually 6 to 12), with subsections for each sub-part, 6 to 12 table rows, 7 to 10 remember items. Do not stop after an overview.",
+        "key_points": "KEY POINTS: concise points grouped by concept. 4 to 6 sections, 3 to 5 points each.",
+        "exam_review": "EXAM REVIEW: the concepts, comparisons, and processes most likely to be tested, and common mistakes to avoid.",
+        "memorize": "MEMORIZE: exactly what the student must memorize, each with a short memory cue.",
     }[body.summary_type]
     if body.material_id:
         selected = material_for(db, body.material_id, user.id)
@@ -194,13 +266,8 @@ def summarize(body: s.GenerateIn, db=Depends(get_db), user=Depends(current_user)
     if not readable_materials:
         raise HTTPException(400, "لا يوجد نص مقروء في الملفات. ارفع ملفًا نصيًا أو PDF قابلًا لاستخراج النص أولًا.")
     full_source = "\n\n".join(str(item.extracted_text).strip() for item in readable_materials)
-    profiles = {
-        "simple": {"chunk_size": 140000, "single_limit": 12, "chunk_limit": 4},
-        "medium": {"chunk_size": 80000, "single_limit": 38, "chunk_limit": 14},
-        "detailed": {"chunk_size": 45000, "single_limit": 100, "chunk_limit": 65},
-    }
-    profile = profiles.get(body.summary_type, {"chunk_size": 100000, "single_limit": 20, "chunk_limit": 10})
-    chunk_size = profile["chunk_size"]
+    # The provider accepts up to 700k characters for summaries, so most files are read in one pass.
+    chunk_size = 450000
     contexts = []
     if len(full_source) > chunk_size:
         start = 0
@@ -214,79 +281,63 @@ def summarize(body: s.GenerateIn, db=Depends(get_db), user=Depends(current_user)
             start = end
     else:
         contexts = [full_source]
-    per_chunk_limit = profile["chunk_limit"] if len(contexts) > 1 else profile["single_limit"]
-    level_requirement = {
-        "simple": "Return 5 to 12 total high-value points for a short file, or up to 4 points from this chunk when the file is split.",
-        "medium": "Return 18 to 38 points for a short file, or 8 to 14 important points from this chunk when the file is split.",
-        "detailed": "Return as many supported points as necessary for full coverage, normally 35 to 65 points from a dense chunk. Do not stop after an overview.",
-    }.get(body.summary_type, "Use the requested level of detail consistently.")
-    prompt = f"""Extract a polished {body.summary_type} study summary from the uploaded FILE text only.
-{rules}
-{level_requirement}
-Return one JSON object with a sections array. Every section has a heading and an items array.
-Every item must have exactly two fields:
-- source_quote: an exact, contiguous, character-for-character quote copied from the FILE text.
-- text: a faithful concise rendering of that quote in {language}.
+    part_note = "" if len(contexts) == 1 else "\nThe file is long and you are reading one part of it. Summarize only this part; other parts are summarized separately."
+    prompt = f"""Create a {body.summary_type} study summary of the student's FILE, written in {language}.
+You are an expert teacher preparing a beautiful study sheet. Read the whole FILE first, then pull out what a student needs to understand and remember for the exam.
+{depth}{part_note}
 
-ORGANIZATION:
-- {heading_guidance}
-- Arrange sections in a logical study order that follows the source.
-- Use one focused section per major concept. Do not put the whole summary under generic categories.
-- Keep definitions as clear statements, explicit source lists as separate list items, and processes in their original sequence.
+WHAT TO EXTRACT:
+- Core ideas, definitions, key terms, lists, steps and processes (in order), types and categories, comparisons, causes and effects, roles, conditions, exceptions, formulas, numbers, dates, and stated examples.
+- Skip metadata that does not help studying: page numbers, headers and footers, course codes, author or instructor contact details, copyright lines, and tables of contents.
 
-STRICT RULES:
-- Read the entire provided text from beginning to end.
-- Return up to {per_chunk_limit} items from this part and avoid duplicate facts.
-- Treat this part as mandatory source coverage. Inspect every paragraph before finishing.
-- Capture every important concept, explicit definition, term, enumeration, list item, category, requirement, step, process, comparison, relationship, condition, exception, formula, and stated example.
-- Preserve each item in an explicit numbered or bulleted list as its own summary item. Never collapse a source list into a vague sentence.
-- source_quote must occur literally in the FILE text; never invent or paraphrase it.
-- text may translate or shorten source_quote, but must not add a definition, example, reason, result, function, conclusion, question, or broader claim.
-- Omit unsupported sections. Do not create review questions.
-- Do not use subject names, filenames, headings, or metadata as study facts."""
-    normalized_source = re.sub(r"\s+", " ", full_source).strip()
-    arabic_chars = len(re.findall(r"[\u0600-\u06ff]", full_source))
-    latin_chars = len(re.findall(r"[A-Za-z]", full_source))
-    source_is_arabic = arabic_chars >= latin_chars
-    same_language = (body.language == "arabic" and source_is_arabic) or (body.language == "english" and not source_is_arabic)
-    grouped: dict[str, list[str]] = {}
-    seen_quotes: set[str] = set()
-    accepted = 0
+HOW TO WRITE:
+- Explain in simple, clear {language}, as a friendly teacher would. Short sentences. Define every hard term the first time it appears.
+- Rephrase and simplify freely, but every fact must come from the FILE. Do not add facts, numbers, or examples that are not in the FILE.
+- Keep numbers, dates, names, and formulas exactly as written in the FILE.
+- {"عند وجود مصطلح إنجليزي في الملف، اكتب المصطلح العربي ثم الأصل الإنجليزي بين قوسين، مثل: إدارة المخاطر (Risk Management)." if arabic else "Keep original technical terms as written in the FILE."}
+- Use **double asterisks** to bold the most important words inside a sentence, sparingly.
+- Headings must name the real concept from the FILE (for example "Phases of the Project Life Cycle"), never generic words like "Section 1" or "Details".
+- Give each section one fitting emoji that matches its content (🎯 goals, 📌 definitions, 🔄 processes, ⚖️ comparisons, 🧩 types, 👥 roles, ⚠️ risks or mistakes, 🔢 numbers, 💡 ideas, 📚 background).
+- Follow the FILE's own logical order.
+
+Return one JSON object with exactly these keys:
+{{
+  "title": "the real subject of the file, short",
+  "subtitle": "one sentence: what this file teaches",
+  "introduction": "2 to 4 sentences that give the big picture",
+  "sections": [
+    {{
+      "emoji": "one emoji",
+      "heading": "concept name",
+      "paragraph": "1 to 3 sentences explaining this part, or an empty string",
+      "points": [{{"term": "key term or short label", "explanation": "clear explanation in 1 to 2 sentences"}}],
+      "subsections": [{{"heading": "sub-part name", "paragraph": "optional short explanation", "points": [{{"term": "...", "explanation": "..."}}]}}]
+    }}
+  ],
+  "key_table": {{"columns": ["{"المصطلح" if arabic else "Term"}", "{"المعنى" if arabic else "Meaning"}"], "rows": [["term", "short meaning"]]}},
+  "remember": ["a short fact the student must remember for the exam"],
+  "conclusion": "2 to 3 sentences tying the ideas together"
+}}
+Use an empty array for subsections when a section has none. Return valid JSON only."""
+    parts = []
     for context_part in contexts:
         result = provider().structured(prompt, context_part)
-        sections = result.get("sections", []) if isinstance(result, dict) else []
-        for section in sections:
-            heading = re.sub(r"^#{1,3}\s*", "", str(section.get("heading", "")).strip()) or ("📘 الملخص" if body.language == "arabic" else "📘 Summary")
-            for item in section.get("items", []):
-                quote = str(item.get("source_quote", "")).strip()
-                rendered = str(item.get("text", "")).strip()
-                quote_key = re.sub(r"\s+", " ", quote)
-                if not quote or quote_key not in normalized_source or quote_key in seen_quotes:
-                    continue
-                final_text = quote if same_language else rendered
-                if not final_text:
-                    continue
-                grouped.setdefault(heading, []).append(final_text)
-                seen_quotes.add(quote_key)
-                accepted += 1
-    if not accepted:
-        raise RuntimeError("تعذر إنشاء ملخص موثوق من نص الملف. جرّب ملفًا أوضح أو نصًا أطول.")
-    output = [
-        "يغطي هذا الملخص المفاهيم والمعلومات الأساسية الواردة في الملف، وقد نُظمت لتسهيل الفهم والمراجعة."
-        if body.language == "arabic"
-        else "This summary covers the essential concepts and information from the uploaded material, organized for clear study and review."
-    ]
-    for section_number, (heading, items) in enumerate(grouped.items(), start=1):
-        clean_heading = re.sub(r"^[\d٠-٩]+[.)-]\s*", "", heading).strip()
-        output.append(f"## {section_number}. {clean_heading}")
-        output.extend(f"- {item}" for item in items)
-    if body.summary_type == "detailed":
-        review_items = [item for items in grouped.values() for item in items][:7]
-        if review_items:
-            output.append("---")
-            output.append("## مراجعة سريعة" if body.language == "arabic" else "## Quick Review")
-            output.extend(f"- **{'تذكّر' if body.language == 'arabic' else 'Remember'}:** {item}" for item in review_items)
-    content = "\n\n".join(output)
+        if isinstance(result, dict) and isinstance(result.get("sections"), list):
+            parts.append(result)
+    if not parts or not any(part.get("sections") for part in parts):
+        raise RuntimeError("تعذر إنشاء ملخص من نص الملف. جرّب مرة أخرى أو ارفع ملفًا أوضح.")
+    merged = {**parts[0], "sections": [], "remember": [], "key_table": {"columns": (parts[0].get("key_table") or {}).get("columns"), "rows": []}, "conclusion": parts[-1].get("conclusion", "")}
+    seen_terms: set[str] = set()
+    for part in parts:
+        merged["sections"].extend(part.get("sections") or [])
+        merged["remember"].extend(part.get("remember") or [])
+        for row in (part.get("key_table") or {}).get("rows") or []:
+            if isinstance(row, list) and len(row) >= 2 and _clean(row[0]).lower() not in seen_terms:
+                seen_terms.add(_clean(row[0]).lower())
+                merged["key_table"]["rows"].append(row)
+    merged["remember"] = merged["remember"][:12]
+    merged["key_table"]["rows"] = merged["key_table"]["rows"][:16]
+    content = summary_markdown(merged, arabic)
     summary = m.Summary(topic_id=topic.id, content=content, summary_type=body.summary_type, language=body.language)
     db.add(summary)
     db.commit()
